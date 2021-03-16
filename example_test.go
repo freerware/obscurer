@@ -40,9 +40,15 @@ func Example_http() {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
+	original, _ := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
+	obscured := obscurer.Default.Obscure(original)
+
+	// load the store.
+	store := obscurer.DefaultStore
+	store.Load(map[*url.URL]*url.URL{obscured: original})
+
 	// issue the request.
-	u, _ := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	http.Get(u.String())
+	http.Get(obscured.String())
 	// Output:
 	// we made it!
 }
@@ -61,9 +67,15 @@ func Example_gorilla() {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
+	original, _ := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
+	obscured := obscurer.Default.Obscure(original)
+
+	// load the store.
+	store := obscurer.DefaultStore
+	store.Load(map[*url.URL]*url.URL{obscured: original})
+
 	// issue the request.
-	u, _ := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	http.Get(u.String())
+	http.Get(obscured.String())
 	// Output:
 	// we made it!
 }
@@ -82,9 +94,15 @@ func Example_gin() {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
+	original, _ := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
+	obscured := obscurer.Default.Obscure(original)
+
+	// load the store.
+	store := obscurer.DefaultStore
+	store.Load(map[*url.URL]*url.URL{obscured: original})
+
 	// issue the request.
-	u, _ := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	http.Get(u.String())
+	http.Get(obscured.String())
 	// Output:
 	// we made it!
 }
