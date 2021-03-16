@@ -23,20 +23,31 @@ import "net/http"
 type responseWriter struct {
 	http.ResponseWriter
 
-	status    int
-	autoFlush bool
+	body   []byte
+	status int
+}
+
+func (rw *responseWriter) Write(body []byte) (int, error) {
+	rw.body = body
+	return len(body), nil
 }
 
 // WriterHeader captures the status code being set for the response,
 // and delegates to the underlying http.ResponseWriter.
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
-	if rw.autoFlush {
-		rw.Flush()
-	}
 }
 
 // Flush writes the status code to the underlying http.ResponseWriter.
-func (rw *responseWriter) Flush() {
-	rw.ResponseWriter.WriteHeader(rw.status)
+func (rw *responseWriter) Do() (written int, err error) {
+	// write the HTTP status code to the underlying http.ResponseWriter.
+	if rw.status != 0 {
+		rw.ResponseWriter.WriteHeader(rw.status)
+	}
+	// if we have content in the body, write that to the underlying
+	// http.ResponseWriter.
+	if len(rw.body) > 0 {
+		written, err = rw.ResponseWriter.Write(rw.body)
+	}
+	return
 }
