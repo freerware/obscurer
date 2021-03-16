@@ -18,20 +18,17 @@ package obscurer_test
 import (
 	"crypto/md5"
 	"fmt"
-	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/freerware/obscurer"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestObscure(t *testing.T) {
 	// arrange.
 	obscurer := obscurer.Default
-	u, err := url.Parse("http://www.example.com/this/is/the/way/")
-	if err != nil {
-		t.Error(err.Error())
-	}
+	u := mustParse("http://www.example.com/this/is/the/way/")
 	want := *u
 	obscuredPathBytes := md5.New().Sum([]byte(strings.TrimLeft(u.Path, "/")))
 	obscuredPath := fmt.Sprintf("%x", obscuredPathBytes)
@@ -39,7 +36,5 @@ func TestObscure(t *testing.T) {
 
 	// action + assert.
 	got := obscurer.Obscure(u)
-	if want != *got {
-		t.Errorf("wanted: %s, got: %s", &want, got)
-	}
+	assert.Equal(t, want, *got, "wanted: %s, got: %s", &want, got)
 }

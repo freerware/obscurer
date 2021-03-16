@@ -27,12 +27,16 @@ import (
 	"github.com/freerware/obscurer"
 	"github.com/freerware/obscurer/internal/mock"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestHandler_UnobscuredRequestURL tests that requests issued with an
 // unobscured URL are properly handled.
 func TestHandler_UnobscuredRequestURL(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	handled := false
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -45,19 +49,10 @@ func TestHandler_UnobscuredRequestURL(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 200 {
-		t.Errorf("expected status code 200, got status code %d", response.StatusCode)
-	}
-	if !handled {
-		t.Error("expected for the request to be handled")
-	}
-	if store.Size() > 0 {
-		t.Error("expected the store to be empty")
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
+	assert.True(handled, "expected for the request to be handled")
+	assert.Equalf(0, store.Size(), "expected the store to be empty")
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -69,6 +64,8 @@ func TestHandler_UnobscuredRequestURL(t *testing.T) {
 // obscured URL are properly handled.
 func TestHandler_ObscuredRequestURL(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	handled := false
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -79,13 +76,9 @@ func TestHandler_ObscuredRequestURL(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	u, err := url.Parse(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Errorf("error when creating URL: %s", err.Error())
-		t.FailNow()
-	}
+	u := mustParse(fmt.Sprintf("%s/this/is/the/way", server.URL))
 	obscuredURL := obscurer.Default.Obscure(u)
-	err = store.Load(map[*url.URL]*url.URL{
+	err := store.Load(map[*url.URL]*url.URL{
 		obscuredURL: u,
 	})
 	if err != nil {
@@ -95,22 +88,12 @@ func TestHandler_ObscuredRequestURL(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(obscuredURL.String())
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 200 {
-		t.Errorf("expected status code 200, got status code %d", response.StatusCode)
-	}
-	if !handled {
-		t.Error("expected for the request to be handled")
-	}
-	if store.Size() != 1 {
-		t.Error("expected the store to have one entry")
-	}
-	if _, ok := store.Get(obscuredURL); !ok {
-		t.Error("expected the store to have entry for the obscured URL")
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
+	assert.True(handled, "expected for the request to be handled")
+	assert.Equalf(1, store.Size(), "expected the store to have one entry")
+	_, ok := store.Get(obscuredURL)
+	assert.True(ok, "expected the store to have entry for the obscured URL")
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -122,41 +105,29 @@ func TestHandler_ObscuredRequestURL(t *testing.T) {
 // results in HTTP 404.
 func TestHandler_404Request(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	mux := http.NewServeMux()
 	store := obscurer.DefaultStore
 	handler := obscurer.NewHandler(obscurer.Default, store, mux)
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	u, err := url.Parse(fmt.Sprintf("%s/this/is/not/the/way", server.URL))
-	if err != nil {
-		t.Errorf("error when creating URL: %s", err.Error())
-		t.FailNow()
-	}
+	u := mustParse(fmt.Sprintf("%s/this/is/not/the/way", server.URL))
 	obscuredURL := obscurer.Default.Obscure(u)
 
 	// action + assert.
 	response, err := http.Get(obscuredURL.String())
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	defer response.Body.Close()
-	if response.StatusCode != 404 {
-		t.Errorf("expected status code 404, got status code %d", response.StatusCode)
-	}
+	assert.Equalf(http.StatusNotFound, response.StatusCode, "expected status code 404, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	// https://golang.org/src/net/http/server.go?s=64501:64553#L2086
 	want := "404 page not found\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
-	if store.Size() > 0 {
-		t.Error("expected the store to be empty")
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
+	assert.Equalf(0, store.Size(), "expected the store to be empty")
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -169,6 +140,8 @@ func TestHandler_404Request(t *testing.T) {
 // to remove a mapping from the store.
 func TestHandler_404Request_RemovalError(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mux := http.NewServeMux()
@@ -178,47 +151,32 @@ func TestHandler_404Request_RemovalError(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	u, err := url.Parse(fmt.Sprintf("%s/this/is/not/the/way", server.URL))
-	if err != nil {
-		t.Errorf("error when creating URL: %s", err.Error())
-		t.FailNow()
-	}
+	u := mustParse(fmt.Sprintf("%s/this/is/not/the/way", server.URL))
 	obscuredURL := obscurer.Default.Obscure(u)
 	store.EXPECT().Get(gomock.Any()).Return(nil, false)
 	store.EXPECT().Remove(gomock.Any()).Return(expectedErr)
 
 	// action + assert.
 	response, err := http.Get(obscuredURL.String())
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrFailedRemoval.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
 }
 
 // TestHandler_LocationHeader tests that the 'Location' header is obscured.
 func TestHandler_LocationHeader(t *testing.T) {
 	// arrange.
-	location, err := url.Parse("/hey/der")
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
+	assert := assert.New(t)
+	require := require.New(t)
+	location := mustParse("/hey/der")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Location", location.String())
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	obscuredLocation := obscurer.Default.Obscure(location)
 	store := obscurer.DefaultStore
@@ -228,20 +186,12 @@ func TestHandler_LocationHeader(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 200 {
-		t.Errorf("expected status code 200, got status code %d", response.StatusCode)
-	}
-	if store.Size() == 0 {
-		t.Error("expected the store to not be empty")
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
+	assert.Equalf(1, store.Size(), "expected the store to have one entry")
 	got := response.Header.Get("Location")
-	if got != obscuredLocation.String() {
-		t.Errorf("expected 'Location' header to be %q, not %q", obscuredLocation.String(), got)
-	}
+	want := obscuredLocation.String()
+	assert.Equal(want, got, "expected 'Location' header to be %q, not %q", obscuredLocation.String(), got)
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -253,10 +203,12 @@ func TestHandler_LocationHeader(t *testing.T) {
 // when an invalid URL is provided for the 'Location' header.
 func TestHandler_LocationHeader_InvalidURL(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Location", "example.com\foo")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	store := obscurer.DefaultStore
 	handler := obscurer.NewHandler(obscurer.Default, store, mux)
@@ -265,22 +217,13 @@ func TestHandler_LocationHeader_InvalidURL(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrLocationHeaderFailure.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -293,12 +236,14 @@ func TestHandler_LocationHeader_InvalidURL(t *testing.T) {
 // header in the store.
 func TestHandler_LocationHeader_PutError(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Location", "/hey/der")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	store := mock.NewStore(ctrl)
 	expectedErr := errors.New("whoa")
@@ -311,37 +256,26 @@ func TestHandler_LocationHeader_PutError(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrLocationHeaderFailure.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
 }
 
 // TestHandler_ContentLocationHeader tests that the 'Content-Location'
 // header is obscured.
 func TestHandler_ContentLocationHeader(t *testing.T) {
 	// arrange.
-	location, err := url.Parse("/hey/der")
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
+	assert := assert.New(t)
+	require := require.New(t)
+	location := mustParse("/hey/der")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Location", location.String())
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	obscuredLocation := obscurer.Default.Obscure(location)
 	store := obscurer.DefaultStore
@@ -351,20 +285,12 @@ func TestHandler_ContentLocationHeader(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 200 {
-		t.Errorf("expected status code 200, got status code %d", response.StatusCode)
-	}
-	if store.Size() == 0 {
-		t.Error("expected the store to not be empty")
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
+	assert.Equalf(1, store.Size(), "expected the store to have one entry")
 	got := response.Header.Get("Content-Location")
-	if got != obscuredLocation.String() {
-		t.Errorf("expected 'Content-Location' header to be %q, not %q", obscuredLocation.String(), got)
-	}
+	want := obscuredLocation.String()
+	assert.Equal(want, got, "expected 'Content-Location' header to be %q, not %q", want, got)
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -376,10 +302,12 @@ func TestHandler_ContentLocationHeader(t *testing.T) {
 // when an invalid URL is provided for the 'Content-Location' header.
 func TestHandler_ContentLocationHeader_InvalidURL(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Location", "example.com\foo")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	store := obscurer.DefaultStore
 	handler := obscurer.NewHandler(obscurer.Default, store, mux)
@@ -388,22 +316,13 @@ func TestHandler_ContentLocationHeader_InvalidURL(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrContentLocationHeaderFailure.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -416,12 +335,14 @@ func TestHandler_ContentLocationHeader_InvalidURL(t *testing.T) {
 // header in the store.
 func TestHandler_ContentLocationHeader_PutError(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Location", "/hey/der")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	store := mock.NewStore(ctrl)
 	expectedErr := errors.New("whoa")
@@ -434,36 +355,25 @@ func TestHandler_ContentLocationHeader_PutError(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrContentLocationHeaderFailure.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
 }
 
 // TestHandler_LinkHeader tests that the 'Link' header is obscured.
 func TestHandler_LinkHeader(t *testing.T) {
 	// arrange.
-	link, err := url.Parse("/hey/der")
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
+	assert := assert.New(t)
+	require := require.New(t)
+	link := mustParse("/hey/der")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Link", fmt.Sprintf("<%s>", link.String()))
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	obscuredLink := obscurer.Default.Obscure(link)
 	store := obscurer.DefaultStore
@@ -473,21 +383,12 @@ func TestHandler_LinkHeader(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 200 {
-		t.Errorf("expected status code 200, got status code %d", response.StatusCode)
-	}
-	if store.Size() == 0 {
-		t.Error("expected the store to not be empty")
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
+	assert.Equalf(1, store.Size(), "expected the store to have one entry")
 	want := fmt.Sprintf("<%s>", obscuredLink.String())
 	got := response.Header.Get("Link")
-	if got != want {
-		t.Errorf("expected 'Link' header to be %q, not %q", want, got)
-	}
+	assert.Equal(want, got, "expected 'Link' header to be %q, not %q", want, got)
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -499,10 +400,12 @@ func TestHandler_LinkHeader(t *testing.T) {
 // when an invalid URL is provided for the 'Link' header.
 func TestHandler_LinkHeader_InvalidURL(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Link", "<example.com\foo>; rel='next'")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	store := obscurer.DefaultStore
 	handler := obscurer.NewHandler(obscurer.Default, store, mux)
@@ -511,22 +414,13 @@ func TestHandler_LinkHeader_InvalidURL(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrLinkHeaderFailure.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
-	}
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
 
 	// cleanup.
 	t.Cleanup(func() {
@@ -539,12 +433,14 @@ func TestHandler_LinkHeader_InvalidURL(t *testing.T) {
 // header in the store.
 func TestHandler_LinkHeader_PutError(t *testing.T) {
 	// arrange.
+	assert := assert.New(t)
+	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Link", "</hey/der>; rel='next'")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 	store := mock.NewStore(ctrl)
 	expectedErr := errors.New("whoa")
@@ -557,20 +453,19 @@ func TestHandler_LinkHeader_PutError(t *testing.T) {
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	if response.StatusCode != 500 {
-		t.Errorf("expected status code 500, got status code %d", response.StatusCode)
-	}
+	require.NoError(err)
+	assert.Equalf(http.StatusInternalServerError, response.StatusCode, "expected status code 500, got status code %d", response.StatusCode)
 	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(err)
 	responseBody := string(responseBytes)
 	want := obscurer.ErrLinkHeaderFailure.Error() + "\n"
-	if responseBody != want {
-		t.Errorf("expected body to be %q, got %q", want, responseBody)
+	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
+}
+
+func mustParse(str string) *url.URL {
+	u, err := url.Parse(str)
+	if err != nil {
+		panic(err)
 	}
+	return u
 }
