@@ -14,5 +14,8 @@ test: bins
 	@echo testing...
 	@GO111MODULE=on go test -v -race -covermode=atomic -coverprofile=obscurer.coverprofile github.com/freerware/obscurer
 
+mocks:
+	@mockgen -source=store.go -destination=./internal/mock/store.go -package=mock -mock_names=Store=Store
+
 benchmark: bins
 	@GO111MODULE=on go test -run XXX -bench .
