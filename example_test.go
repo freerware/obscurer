@@ -16,6 +16,7 @@
 package obscurer_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -44,8 +45,9 @@ func Example_http() {
 	obscured := obscurer.Default.Obscure(original)
 
 	// load the store.
+	ctx := context.Background()
 	store := obscurer.DefaultStore
-	store.Load(map[*url.URL]*url.URL{obscured: original})
+	store.Load(ctx, map[*url.URL]*url.URL{obscured: original})
 
 	// issue the request.
 	http.Get(obscured.String())
@@ -71,8 +73,9 @@ func Example_gorilla() {
 	obscured := obscurer.Default.Obscure(original)
 
 	// load the store.
+	ctx := context.Background()
 	store := obscurer.DefaultStore
-	store.Load(map[*url.URL]*url.URL{obscured: original})
+	store.Load(ctx, map[*url.URL]*url.URL{obscured: original})
 
 	// issue the request.
 	http.Get(obscured.String())
@@ -98,8 +101,9 @@ func Example_gin() {
 	obscured := obscurer.Default.Obscure(original)
 
 	// load the store.
+	ctx := context.Background()
 	store := obscurer.DefaultStore
-	store.Load(map[*url.URL]*url.URL{obscured: original})
+	store.Load(ctx, map[*url.URL]*url.URL{obscured: original})
 
 	// issue the request.
 	http.Get(obscured.String())

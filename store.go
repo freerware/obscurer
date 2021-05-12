@@ -16,6 +16,7 @@
 package obscurer
 
 import (
+	"context"
 	"net/url"
 	"sync"
 )
@@ -25,12 +26,12 @@ var DefaultStore = &memoryStore{}
 
 // Store stores mappings between obscured URLs and their original form.
 type Store interface {
-	Put(obscured, original *url.URL) error
-	Get(obscured *url.URL) (*url.URL, bool)
-	Remove(obscured *url.URL) error
-	Clear() error
-	Size() int
-	Load(map[*url.URL]*url.URL) error
+	Put(ctx context.Context, obscured, original *url.URL) error
+	Get(context.Context, *url.URL) (*url.URL, bool)
+	Remove(context.Context, *url.URL) error
+	Clear(context.Context) error
+	Size(context.Context) int
+	Load(context.Context, map[*url.URL]*url.URL) error
 }
 
 // memoryStore stores all obscured URL mappings in memory.
@@ -40,7 +41,7 @@ type memoryStore struct {
 
 // Put places the mapping between the provided obscured URL and it's original
 // form into the store.
-func (s *memoryStore) Put(obscured, original *url.URL) error {
+func (s *memoryStore) Put(ctx context.Context, obscured, original *url.URL) error {
 	if _, ok := s.store.Load(obscured.Path); !ok {
 		s.store.Store(obscured.Path, *original)
 	}
@@ -48,7 +49,7 @@ func (s *memoryStore) Put(obscured, original *url.URL) error {
 }
 
 // Get retrieves the original form of the provided obscured URL.
-func (s *memoryStore) Get(obscured *url.URL) (*url.URL, bool) {
+func (s *memoryStore) Get(ctx context.Context, obscured *url.URL) (*url.URL, bool) {
 	original, ok := s.store.Load(obscured.Path)
 	if ok {
 		originalURL := original.(url.URL)
@@ -58,13 +59,13 @@ func (s *memoryStore) Get(obscured *url.URL) (*url.URL, bool) {
 }
 
 // Remove deletes the entry in the store for the provided obscured URL.
-func (s *memoryStore) Remove(obscured *url.URL) error {
+func (s *memoryStore) Remove(ctx context.Context, obscured *url.URL) error {
 	s.store.Delete(obscured.Path)
 	return nil
 }
 
 // Clear removes all entries in the store.
-func (s *memoryStore) Clear() error {
+func (s *memoryStore) Clear(ctx context.Context) error {
 	s.store.Range(func(key, value interface{}) bool {
 		s.store.Delete(key)
 		return true
@@ -73,7 +74,7 @@ func (s *memoryStore) Clear() error {
 }
 
 // Size computes the size of the store.
-func (s *memoryStore) Size() (size int) {
+func (s *memoryStore) Size(ctx context.Context) (size int) {
 	s.store.Range(func(key, value interface{}) bool {
 		size = size + 1
 		return true
@@ -83,9 +84,9 @@ func (s *memoryStore) Size() (size int) {
 
 // Load loads the store with the provided map, where the keys are
 // obscured URLs and the values are their corresponding originals.
-func (s *memoryStore) Load(mappings map[*url.URL]*url.URL) error {
+func (s *memoryStore) Load(ctx context.Context, mappings map[*url.URL]*url.URL) error {
 	for obscured, unobscured := range mappings {
-		if err := s.Put(obscured, unobscured); err != nil {
+		if err := s.Put(ctx, obscured, unobscured); err != nil {
 			return err
 		}
 	}

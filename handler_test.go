@@ -16,6 +16,7 @@
 package obscurer_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -37,6 +38,7 @@ func TestHandler_UnobscuredRequestURL(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	handled := false
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -52,11 +54,11 @@ func TestHandler_UnobscuredRequestURL(t *testing.T) {
 	require.NoError(err)
 	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
 	assert.True(handled, "expected for the request to be handled")
-	assert.Equalf(0, store.Size(), "expected the store to be empty")
+	assert.Equalf(0, store.Size(ctx), "expected the store to be empty")
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -66,6 +68,7 @@ func TestHandler_ObscuredRequestURL(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	handled := false
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +81,7 @@ func TestHandler_ObscuredRequestURL(t *testing.T) {
 
 	u := mustParse(fmt.Sprintf("%s/this/is/the/way", server.URL))
 	obscuredURL := obscurer.Default.Obscure(u)
-	err := store.Load(map[*url.URL]*url.URL{
+	err := store.Load(ctx, map[*url.URL]*url.URL{
 		obscuredURL: u,
 	})
 	if err != nil {
@@ -91,13 +94,13 @@ func TestHandler_ObscuredRequestURL(t *testing.T) {
 	require.NoError(err)
 	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
 	assert.True(handled, "expected for the request to be handled")
-	assert.Equalf(1, store.Size(), "expected the store to have one entry")
-	_, ok := store.Get(obscuredURL)
+	assert.Equalf(1, store.Size(ctx), "expected the store to have one entry")
+	_, ok := store.Get(ctx, obscuredURL)
 	assert.True(ok, "expected the store to have entry for the obscured URL")
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -107,6 +110,7 @@ func TestHandler_404Request(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	mux := http.NewServeMux()
 	store := obscurer.DefaultStore
 	handler := obscurer.NewHandler(obscurer.Default, store, mux)
@@ -127,11 +131,11 @@ func TestHandler_404Request(t *testing.T) {
 	// https://golang.org/src/net/http/server.go?s=64501:64553#L2086
 	want := "404 page not found\n"
 	assert.Equal(want, responseBody, "expected body to be %q, got %q", want, responseBody)
-	assert.Equalf(0, store.Size(), "expected the store to be empty")
+	assert.Equalf(0, store.Size(ctx), "expected the store to be empty")
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -153,8 +157,8 @@ func TestHandler_404Request_RemovalError(t *testing.T) {
 
 	u := mustParse(fmt.Sprintf("%s/this/is/not/the/way", server.URL))
 	obscuredURL := obscurer.Default.Obscure(u)
-	store.EXPECT().Get(gomock.Any()).Return(nil, false)
-	store.EXPECT().Remove(gomock.Any()).Return(expectedErr)
+	store.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, false)
+	store.EXPECT().Remove(gomock.Any(), gomock.Any()).Return(expectedErr)
 
 	// action + assert.
 	response, err := http.Get(obscuredURL.String())
@@ -172,6 +176,7 @@ func TestHandler_LocationHeader(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	location := mustParse("/hey/der")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -188,14 +193,14 @@ func TestHandler_LocationHeader(t *testing.T) {
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
 	require.NoError(err)
 	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
-	assert.Equalf(1, store.Size(), "expected the store to have one entry")
+	assert.Equalf(1, store.Size(ctx), "expected the store to have one entry")
 	got := response.Header.Get("Location")
 	want := obscuredLocation.String()
 	assert.Equal(want, got, "expected 'Location' header to be %q, not %q", obscuredLocation.String(), got)
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -205,6 +210,7 @@ func TestHandler_LocationHeader_InvalidURL(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Location", "example.com\foo")
@@ -227,7 +233,7 @@ func TestHandler_LocationHeader_InvalidURL(t *testing.T) {
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -251,8 +257,8 @@ func TestHandler_LocationHeader_PutError(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	store.EXPECT().Get(gomock.Any()).Return(nil, false)
-	store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(expectedErr)
+	store.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, false)
+	store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedErr)
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
@@ -271,6 +277,7 @@ func TestHandler_ContentLocationHeader(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	location := mustParse("/hey/der")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -287,14 +294,14 @@ func TestHandler_ContentLocationHeader(t *testing.T) {
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
 	require.NoError(err)
 	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
-	assert.Equalf(1, store.Size(), "expected the store to have one entry")
+	assert.Equalf(1, store.Size(ctx), "expected the store to have one entry")
 	got := response.Header.Get("Content-Location")
 	want := obscuredLocation.String()
 	assert.Equal(want, got, "expected 'Content-Location' header to be %q, not %q", want, got)
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -304,6 +311,7 @@ func TestHandler_ContentLocationHeader_InvalidURL(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Location", "example.com\foo")
@@ -326,7 +334,7 @@ func TestHandler_ContentLocationHeader_InvalidURL(t *testing.T) {
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -350,8 +358,8 @@ func TestHandler_ContentLocationHeader_PutError(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	store.EXPECT().Get(gomock.Any()).Return(nil, false)
-	store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(expectedErr)
+	store.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, false)
+	store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedErr)
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
@@ -369,6 +377,7 @@ func TestHandler_LinkHeader(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	link := mustParse("/hey/der")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
@@ -385,14 +394,14 @@ func TestHandler_LinkHeader(t *testing.T) {
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))
 	require.NoError(err)
 	assert.Equalf(http.StatusOK, response.StatusCode, "expected status code 200, got status code %d", response.StatusCode)
-	assert.Equalf(1, store.Size(), "expected the store to have one entry")
+	assert.Equalf(1, store.Size(ctx), "expected the store to have one entry")
 	want := fmt.Sprintf("<%s>", obscuredLink.String())
 	got := response.Header.Get("Link")
 	assert.Equal(want, got, "expected 'Link' header to be %q, not %q", want, got)
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -402,6 +411,7 @@ func TestHandler_LinkHeader_InvalidURL(t *testing.T) {
 	// arrange.
 	assert := assert.New(t)
 	require := require.New(t)
+	ctx := context.Background()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/this/is/the/way", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Link", "<example.com\foo>; rel='next'")
@@ -424,7 +434,7 @@ func TestHandler_LinkHeader_InvalidURL(t *testing.T) {
 
 	// cleanup.
 	t.Cleanup(func() {
-		store.Clear()
+		store.Clear(ctx)
 	})
 }
 
@@ -448,8 +458,8 @@ func TestHandler_LinkHeader_PutError(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	store.EXPECT().Get(gomock.Any()).Return(nil, false)
-	store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(expectedErr)
+	store.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, false)
+	store.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedErr)
 
 	// action + assert.
 	response, err := http.Get(fmt.Sprintf("%s/this/is/the/way", server.URL))

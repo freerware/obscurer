@@ -16,6 +16,7 @@
 package obscurer
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -71,8 +72,9 @@ func NewHandler(o Obscurer, s Store, h http.Handler) http.Handler {
 
 // ServeHTTP handles the HTTP request.
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	// assume incoming request is obscured.
-	if unobscured, ok := h.store.Get(r.URL); ok {
+	if unobscured, ok := h.store.Get(ctx, r.URL); ok {
 		r.URL = unobscured
 	}
 
@@ -87,33 +89,33 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// remove entries for resources that don't exist.
 	if rw.status == 404 {
-		if err := h.store.Remove(r.URL); err != nil {
+		if err := h.store.Remove(ctx, r.URL); err != nil {
 			http.Error(rw, ErrFailedRemoval.Error(), 500)
 		}
 	}
 
 	// obscure 'Location'.
 	// see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Location
-	if err := h.obscureHeader(rw, "Location", defaultParseHeader); err != nil {
+	if err := h.obscureHeader(ctx, rw, "Location", defaultParseHeader); err != nil {
 		http.Error(rw, ErrLocationHeaderFailure.Error(), 500)
 	}
 
 	// obscure 'Content-Location'.
 	// see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Location
-	if err := h.obscureHeader(rw, "Content-Location", defaultParseHeader); err != nil {
+	if err := h.obscureHeader(ctx, rw, "Content-Location", defaultParseHeader); err != nil {
 		http.Error(rw, ErrContentLocationHeaderFailure.Error(), 500)
 	}
 
 	// obscure 'Link'.
 	// see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Link
-	if err := h.obscureHeader(rw, "Link", parseLinkHeader); err != nil {
+	if err := h.obscureHeader(ctx, rw, "Link", parseLinkHeader); err != nil {
 		http.Error(rw, ErrLinkHeaderFailure.Error(), 500)
 	}
 }
 
 // obscureHeader obscures the header with the provided key using the provided
 // header parser.
-func (h *handler) obscureHeader(w http.ResponseWriter, key string, parse headerParser) error {
+func (h *handler) obscureHeader(ctx context.Context, w http.ResponseWriter, key string, parse headerParser) error {
 	// grab the header value.
 	headers := w.Header()
 	header := headers.Get(key)
@@ -132,5 +134,5 @@ func (h *handler) obscureHeader(w http.ResponseWriter, key string, parse headerP
 		obscuredHeader := strings.ReplaceAll(header, url.String(), obscured.String())
 		headers.Set(key, obscuredHeader)
 	}
-	return h.store.Put(obscured, url)
+	return h.store.Put(ctx, obscured, url)
 }

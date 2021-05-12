@@ -5,6 +5,7 @@
 package mock
 
 import (
+	context "context"
 	url "net/url"
 	reflect "reflect"
 
@@ -35,86 +36,86 @@ func (m *Store) EXPECT() *StoreMockRecorder {
 }
 
 // Clear mocks base method.
-func (m *Store) Clear() error {
+func (m *Store) Clear(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clear")
+	ret := m.ctrl.Call(m, "Clear", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Clear indicates an expected call of Clear.
-func (mr *StoreMockRecorder) Clear() *gomock.Call {
+func (mr *StoreMockRecorder) Clear(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*Store)(nil).Clear))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clear", reflect.TypeOf((*Store)(nil).Clear), arg0)
 }
 
 // Get mocks base method.
-func (m *Store) Get(obscured *url.URL) (*url.URL, bool) {
+func (m *Store) Get(arg0 context.Context, arg1 *url.URL) (*url.URL, bool) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", obscured)
+	ret := m.ctrl.Call(m, "Get", arg0, arg1)
 	ret0, _ := ret[0].(*url.URL)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *StoreMockRecorder) Get(obscured interface{}) *gomock.Call {
+func (mr *StoreMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*Store)(nil).Get), obscured)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*Store)(nil).Get), arg0, arg1)
 }
 
 // Load mocks base method.
-func (m *Store) Load(arg0 map[*url.URL]*url.URL) error {
+func (m *Store) Load(arg0 context.Context, arg1 map[*url.URL]*url.URL) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Load", arg0)
+	ret := m.ctrl.Call(m, "Load", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Load indicates an expected call of Load.
-func (mr *StoreMockRecorder) Load(arg0 interface{}) *gomock.Call {
+func (mr *StoreMockRecorder) Load(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*Store)(nil).Load), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*Store)(nil).Load), arg0, arg1)
 }
 
 // Put mocks base method.
-func (m *Store) Put(obscured, original *url.URL) error {
+func (m *Store) Put(ctx context.Context, obscured, original *url.URL) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", obscured, original)
+	ret := m.ctrl.Call(m, "Put", ctx, obscured, original)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put.
-func (mr *StoreMockRecorder) Put(obscured, original interface{}) *gomock.Call {
+func (mr *StoreMockRecorder) Put(ctx, obscured, original interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*Store)(nil).Put), obscured, original)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*Store)(nil).Put), ctx, obscured, original)
 }
 
 // Remove mocks base method.
-func (m *Store) Remove(obscured *url.URL) error {
+func (m *Store) Remove(arg0 context.Context, arg1 *url.URL) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", obscured)
+	ret := m.ctrl.Call(m, "Remove", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove.
-func (mr *StoreMockRecorder) Remove(obscured interface{}) *gomock.Call {
+func (mr *StoreMockRecorder) Remove(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*Store)(nil).Remove), obscured)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*Store)(nil).Remove), arg0, arg1)
 }
 
 // Size mocks base method.
-func (m *Store) Size() int {
+func (m *Store) Size(arg0 context.Context) int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Size")
+	ret := m.ctrl.Call(m, "Size", arg0)
 	ret0, _ := ret[0].(int)
 	return ret0
 }
 
 // Size indicates an expected call of Size.
-func (mr *StoreMockRecorder) Size() *gomock.Call {
+func (mr *StoreMockRecorder) Size(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*Store)(nil).Size))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*Store)(nil).Size), arg0)
 }
